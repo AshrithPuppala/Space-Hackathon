@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>🚀 Space Debris Re-entry Simulator - Crazy UI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+        body, html {
+            margin: 0; padding: 0; height: 100%;
+            font-family: 'Orbitron', sans-serif;
+            background: radial-gradient(ellipse at center, #0b1224 0%, #000 80%);
+            color: #c9d1d9;
+            overflow-x: hidden;
+            position: relative;
+        }
+        header {
+            font-weight: 700;
+            font-size: 2.5rem;
+            letter-spacing: 0.15em;
+            text-align: center;
+            padding: 2rem 1rem 1rem;
+            color: #58a6ff;
+            text-shadow:
+                0 0 5px #58a6ff,
+                0 0 10px #58a6ff,
+                0 0 20px #58a6ff;
+            user-select: none;
+        }
+        /* GLOWING ROTATING SPHERE */
+        #rotatingSphere {
+          width: 110px;
+          height: 110px;
+          margin: 0 auto 1.5rem;
+          border-radius: 50%;
+          background:
+            radial-gradient(circle at 68% 28%, #fff 14%, #58a6ff 29%, #147efb 68%, #0b1224 100%),
+            radial-gradient(circle at 40% 68%, rgba(88,166,255,0.3) 0, rgba(10,200,255,0.1) 22%, transparent 70%);
+          box-shadow:
+            0 0 48px 8px #21f8ff66,
+            0 0 16px 2px #21f8fff8,
+            0 0 14px 2px #58a6ff88 inset;
+          position: relative;
+          animation: rotateSphere 5.5s linear infinite;
+          overflow: visible;
+        }
+        #rotatingSphere::after {
+          content: "";
+          position: absolute;
+          top: 23px; left: 47px;
+          width: 28px; height: 18px;
+          border-radius: 50%;
+          background: radial-gradient(ellipse at 45% 60%, #e8f8ffcc 53%, #58a6ff20 100%);
+          opacity: 0.9;
+          filter: blur(1px);
+          transform: rotate(-11deg);
+          pointer-events: none;
+        }
+        #rotatingSphere::before {
+          content: "";
+          position: absolute;
+          top: 15px; left: 15px;
+          width: 80px; height: 80px;
+          border-radius: 50%;
+          border: 3.5px solid #58a6ff44;
+          box-shadow: 0 0 20px #0cf8ffbb;
+          filter: blur(1.5px);
+          opacity: 0.75;
+          transform: rotate(0deg);
+          animation: sphereGlowRing 3.1s linear infinite;
+          pointer-events: none;
+        }
+        @keyframes rotateSphere {
+          0%   { background-position: 68% 28%, 40% 68%; }
+          100% { background-position: 28% 68%, 70% 40%; }
+        }
+        @keyframes sphereGlowRing {
+          0%   { transform: rotate(0deg);}
+          100% { transform: rotate(360deg);}
+        }
+        .spinner.paused {
+            animation-play-state: paused !important;
+            opacity: 0.5;
+        }
+        .starfield {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .card {
+            background: rgba(22, 27, 34, 0.85);
+            border-radius: 12px;
+            box-shadow:
+                0 0 10px #147efb88,
+                0 0 20px #147efbaa;
+            padding: 1.5rem;
+            margin: 1.5rem auto;
+            max-width: 960px;
+            z-index: 1;
+            position: relative;
+            backdrop-filter: blur(10px);
+        }
+        label {
+            color: #8b949e;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+        }
+        input[type="file"] {
+            background-color: #147efb;
+            color: white;
+            border-radius: 9999px;
+            padding: 0.5rem 1.25rem;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        input[type="file"]:hover {
+            background-color: #2586ff;
+        }
+        .tab-buttons {
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+        }
+        .tab-button {
+            cursor: pointer;
+            font-weight: 700;
+            padding: 0.5rem 1rem;
+            border-bottom: 3px solid transparent;
+            transition: border-color 0.3s ease;
+            color: #8b949e;
+            user-select: none;
+        }
+        .tab-button.active {
+            color: #58a6ff;
+            border-color: #58a6ff;
+        }
+        .table-container {
+            overflow-x: auto;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            box-shadow: 0 0 8px #1f80ff60;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            min-width: 600px;
+        }
+        th, td {
+            border: 1px solid #30363d;
+            padding: 0.75rem;
+            text-align: left;
+            font-variant-numeric: tabular-nums;
+        }
+        th {
+            background-color: #21262d;
+            font-weight: 700;
+            color: #58a6ff;
+            user-select: none;
+        }
+        tbody tr:hover {
+            background-color: #147efb22;
+        }
+        #loading-spinner {
+            color: #58a6ff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.6rem;
+            font-weight: 600;
+            font-size: 1rem;
+            user-select: none;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .spinner {
+            animation: spin 1s linear infinite;
+            width: 24px;
+            height: 24px;
+            border: 3px solid #58a6ff;
+            border-top-color: transparent;
+            border-radius: 50%;
+        }
+        .message-box {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(5px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        .message-box-content {
+            background: #14171a;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 2rem;
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 0 15px rgba(88, 166, 255, 0.4);
+        }
+        .message-box-content h4 {
+            color: #58a6ff;
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .message-box-content p {
+            color: #c9d1d9;
+            margin-bottom: 1.5rem;
+        }
+        button:focus {
+            outline: 2px solid #58a6ff;
+            outline-offset: 2px;
+        }
+    </style>
+</head>
+<body>
+    <canvas class="starfield"></canvas>
+    <header>SPACE DEBRIS RE-ENTRY SIMULATOR</header>
+    <!-- GLOWING ROTATING SPHERE -->
+    <div id="rotatingSphere" aria-label="Rotating 3D simulation sphere" role="img" tabindex="0"></div>
+    <div class="container mx-auto px-4">
+        <div class="card">
+            <p class="text-center mb-6 text-[#8b949e]">
+                Simulate the demise of space debris during atmospheric re-entry. Upload a CSV file with debris data to begin.
+            </p>
+            <div class="flex flex-col items-center space-y-4">
+                <label for="file-input" class="block text-sm font-medium mb-1">Upload Debris Data (CSV):</label>
+                <input type="file" id="file-input" accept=".csv" />
+            </div>
+            <div id="loading-spinner" class="hidden my-4">
+                <div class="spinner" role="status" aria-label="loading"></div>
+                <span>Simulating and fetching data...</span>
+            </div>
+        </div>
+        <div id="tabs" class="mt-8 hidden" role="tabpanel">
+            <div class="tab-buttons" role="tablist" aria-label="Simulation output tabs">
+                <div class="tab-button active" data-tab="summary" role="tab" tabindex="0" aria-selected="true" aria-controls="summary">Summary</div>
+                <div class="tab-button" data-tab="details" role="tab" tabindex="-1" aria-selected="false" aria-controls="details">Detailed Results</div>
+                <div class="tab-button" data-tab="chart" role="tab" tabindex="-1" aria-selected="false" aria-controls="chart">Survival Chart</div>
+            </div>
+            <div id="summary" class="tab-content" role="tabpanel" tabindex="0">
+                <div class="card mb-8">
+                    <h2 class="text-2xl font-bold mb-4 text-[#58a6ff]">Simulation Summary</h2>
+                    <div class="table-container" aria-live="polite" aria-atomic="true">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Material</th>
+                                    <th>Total Initial Mass (kg)</th>
+                                    <th>Total Final Mass (kg)</th>
+                                    <th>Survival Rate (%)</th>
+                                    <th>Economic Value ($)</th>
+                                    <th>Suggested End Products</th>
+                                </tr>
+                            </thead>
+                            <tbody id="summary-table-body">
+                                <!-- filled dynamically -->
+                            </tbody>
+                        </table>
+                        <!-- Static Shelf Life Detail Table -->
+                        <div class="mt-8">
+                          <h3 class="text-xl font-bold mb-3 text-[#58a6ff]">Material Shelf Life & Notes</h3>
+                          <div class="table-container" aria-live="polite" aria-atomic="true">
+                            <table>
+                              <thead>
+                                <tr>
+                                  <th>Material</th>
+                                  <th>Shelf Life (Approximate)</th>
+                                  <th>Notes</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                <tr>
+                                  <td>Copper</td>
+                                  <td>20–200 years</td>
+                                  <td>Forms protective patina; corrosion faster in polluted/coastal/moist environments.</td>
+                                </tr>
+                                <tr>
+                                  <td>Carbon Fiber</td>
+                                  <td>25–100 years</td>
+                                  <td>Resin weakens first (due to UV, moisture, or heat); fibers stay stable much longer.</td>
+                                </tr>
+                                <tr>
+                                  <td>Gold</td>
+                                  <td>&gt;1,000 years</td>
+                                  <td>Chemically inert—virtually permanent, no corrosion in normal environments.</td>
+                                </tr>
+                                <tr>
+                                  <td>Aluminum</td>
+                                  <td>20–100 years</td>
+                                  <td>Protective oxide forms quickly; more vulnerable in marine/acidic/chloride environments.</td>
+                                </tr>
+                                <tr>
+                                  <td>Silicon</td>
+                                  <td>30–500+ years</td>
+                                  <td>Bulk silicon is very stable; wafers degrade faster due to thinness/surface effects.</td>
+                                </tr>
+                              </tbody>
+                            </table>
+                            <div class="text-xs text-[#8b949e] mt-2">
+                              Sources: scientific/engineering literature and recent corrosion and material stability research.
+                            </div>
+                          </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="details" class="tab-content hidden" role="tabpanel" tabindex="0">
+                <div class="card">
+                    <h2 class="text-2xl font-bold mb-4 text-[#58a6ff]">Detailed Results</h2>
+                    <div class="table-container" aria-live="polite" aria-atomic="true">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Debris ID</th>
+                                    <th>Initial Mass (kg)</th>
+                                    <th>Final Mass (kg)</th>
+                                    <th>Survival Rate (%)</th>
+                                    <th>Leftover Copper (kg)</th>
+                                    <th>Leftover Carbon Fiber (kg)</th>
+                                    <th>Leftover Gold (kg)</th>
+                                    <th>Leftover Aluminum (kg)</th>
+                                    <th>Leftover Silicon (kg)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="results-table-body">
+                                <!-- filled dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div id="chart" class="tab-content hidden" role="tabpanel" tabindex="0">
+                <div class="card">
+                    <h2 class="text-2xl font-bold mb-4 text-[#58a6ff]">Survival Rate by Material</h2>
+                    <canvas id="recyclingChart" aria-label="Recycling Metrics by Material Line and Log Chart" style="max-height: 500px;"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        // --- Starfield Animation ---
+        const canvas = document.querySelector('.starfield');
+        const ctx = canvas.getContext('2d');
+        let stars = [];
+        const maxStars = 250;
+        function random(min, max) { return Math.random() * (max - min) + min; }
+        function createStars() {
+            stars = [];
+            for (let i = 0; i < maxStars; i++) {
+                stars.push({
+                    x: random(0, window.innerWidth), y: random(0, window.innerHeight),
+                    radius: random(0.5, 1.5), alpha: random(0.2, 1), speed: random(0.01, 0.05)
+                });
+            }
+        }
+        function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; createStars(); }
+        function animateStars() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            stars.forEach(star => {
+                star.alpha += star.speed;
+                if (star.alpha >= 1 || star.alpha <= 0.2) star.speed *= -1;
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.radius, 0, 2 * Math.PI);
+                ctx.fillStyle = `rgba(88, 166, 255, ${star.alpha})`;
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = 'rgba(88, 166, 255, 0.7)';
+                ctx.fill();
+            });
+            requestAnimationFrame(animateStars);
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+        animateStars();
+        // --- Custom Message Box ---
+        function showMessageBox(title, message) {
+            const container = document.createElement('div');
+            container.className = 'message-box';
+            container.innerHTML = `
+                <div class="message-box-content">
+                    <h4>${title}</h4>
+                    <p>${message}</p>
+                    <button onclick="this.closest('.message-box').remove()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md">OK</button>
+                </div>`;
+            document.body.appendChild(container);
+        }
+        // --- Debris Simulator Logic ---
+        const fileInput = document.getElementById('file-input');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const resultsContainer = document.getElementById('tabs');
+        const resultsTableBody = document.getElementById('results-table-body');
+        const summaryTableBody = document.getElementById('summary-table-body');
+        let survivalChart = null;
+        // API Key and endpoint for the Groq API
+        const API_KEY = "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";
+        const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+        const materialData = {
+            "copper": {
+                name: "Copper",
+                heatOfAblation: 4.8e6,
+                recoveryEfficiency: 0.75,
+                earthValue: 10.00,
+            },
+            "carbon_fiber": {
+                name: "Carbon Fiber",
+                heatOfAblation: 6.0e7,
+                recoveryEfficiency: 0.6,
+                earthValue: 50.00,
+            },
+            "gold": {
+                name: "Gold",
+                heatOfAblation: 1.2e6,
+                recoveryEfficiency: 0.9,
+                earthValue: 117000.00,
+            },
+            "aluminium": {
+                name: "Aluminium",
+                heatOfAblation: 1.0e7,
+                recoveryEfficiency: 0.8,
+                earthValue: 2.69,
+            },
+            "silicon": {
+                name: "Silicon",
+                heatOfAblation: 1.5e7,
+                recoveryEfficiency: 0.7,
+                earthValue: 25.00,
+            },
+        };
+        function parseCSV(csvText) {
+            const lines = csvText.split('\n').filter(line => line.trim() !== '');
+            const headers = lines[0].split(',').map(h => h.trim().replace(/\s+/g, '_').toLowerCase());
+            const data = [];
+            for (let i = 1; i < lines.length; i++) {
+                const values = lines[i].split(',');
+                if (values.length === headers.length) {
+                    const obj = {};
+                    headers.forEach((header, idx) => {
+                        const val = values[idx].trim();
+                        obj[header] = isNaN(val) || val === '' ? val : parseFloat(val);
+                    });
+                    data.push(obj);
+                }
+            }
+            return data;
+        }
+        function simulateDemise(data) {
+            const materials = Object.keys(materialData);
+            return data.map(d => {
+                const { total_mass_kg, speed_mps, altitude_m, time_to_fall_s } = d;
+                const heatingRate = 0.5 * Math.pow(speed_mps, 3) * Math.pow(altitude_m / 1000, -2);
+                const totalEnergyInput = heatingRate * time_to_fall_s;
+                let totalFinalMass = 0;
+                const remainingMass = {};
+                const initialMass = {};
+                materials.forEach(m => {
+                    const amount = d[`amount_of_${m}`] || 0;
+                    initialMass[m] = amount;
+                    const specificEnergy = materialData[m].heatOfAblation;
+                    const energyToDemise = amount * specificEnergy;
+                    let finalAmount = totalEnergyInput > energyToDemise ? 0 : amount - (totalEnergyInput / specificEnergy);
+                    if (finalAmount < 0) finalAmount = 0;
+                    remainingMass[m] = finalAmount;
+                    totalFinalMass += finalAmount;
+                });
+                const survivalRate = total_mass_kg > 0 ? (totalFinalMass / total_mass_kg) * 100 : 0;
+                return {
+                    debris_id: d.debris_id,
+                    totalInitialMass: total_mass_kg,
+                    totalFinalMass: totalFinalMass,
+                    survivalRate,
+                    remainingMass,
+                    initialMass
+                };
+            });
+        }
+        async function fetchRecyclingData(aggregatedRemaining) {
+            const materials = Object.keys(aggregatedRemaining);
+            if (!API_KEY || API_KEY.length === 0) {
+                console.warn("Groq API key not found. Using fallback data.");
+                return materials.map(material => {
+                    const mass = aggregatedRemaining[material];
+                    const recoveredMass = mass * materialData[material].recoveryEfficiency;
+                    const economicValue = recoveredMass * materialData[material].earthValue;
+                    return {
+                        material: materialData[material].name,
+                        recoveredMass,
+                        economicValue,
+                        endProducts: "API not available. Fallback to default products.",
+                    };
+                });
+            }
+            const promises = materials.map(async material => {
+                const mass = aggregatedRemaining[material];
+                if (mass <= 0) {
+                    return {
+                        material: materialData[material].name,
+                        recoveredMass: 0,
+                        economicValue: 0,
+                        endProducts: "No material recovered",
+                        shelfLife: materialData[material].shelfLife
+                    };
+                }
+                const prompt = `Given you have ${mass.toFixed(2)} kg of recovered ${materialData[material].name}, provide a short, comma-separated list of 3-5 possible end products.`;
+                try {
+                    const response = await fetch(GROQ_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${API_KEY}`
+                        },
+                        body: JSON.stringify({
+                            model: "llama-3.1-8b-instant",
+                            messages: [{ role: "user", content: prompt }]
+                        })
+                    });
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({}));
+                        const errorMessage = errorData.error?.message || response.statusText;
+                        throw new Error(`Groq API error: ${errorMessage}`);
+                    }
+                    const data = await response.json();
+                    let endProducts = data.choices?.[0]?.message?.content || "API failed. Using fallback.";
+                    endProducts = endProducts.replace(/Product:/gi, '').replace(/[\r\n]+/g, ', ').trim();
+                    endProducts = endProducts.split(',').map(s => s.trim()).filter(Boolean).join(', ');
+                    const recoveredMass = mass * materialData[material].recoveryEfficiency;
+                    const economicValue = recoveredMass * materialData[material].earthValue;
+                    return {
+                        material: materialData[material].name,
+                        recoveredMass,
+                        economicValue,
+                        endProducts,
+                        shelfLife: materialData[material].shelfLife
+                    };
+                } catch (error) {
+                    console.error("API Fetch Error:", error);
+                    showMessageBox("API Error", `Failed to fetch recycled products for ${materialData[material].name}. Using fallback data.`);
+                    return {
+                        material: materialData[material].name,
+                        recoveredMass: mass * materialData[material].recoveryEfficiency,
+                        economicValue: (mass * materialData[material].recoveryEfficiency) * materialData[material].earthValue,
+                        endProducts: `API failed. Fallback: ${materialData[material].name} products.`,
+                        shelfLife: materialData[material].shelfLife
+                    };
+                }
+            });
+            return Promise.all(promises);
+        }
+        async function processData(data) {
+            if (!data || data.length === 0) {
+                showMessageBox("Error", "No valid data found in CSV file.");
+                return;
+            }
+            loadingSpinner.classList.remove('hidden');
+            const spinnerCircle = loadingSpinner.querySelector('.spinner');
+            if (spinnerCircle) spinnerCircle.classList.remove('paused');
+            resultsContainer.classList.add('hidden');
+            const simulatedResults = simulateDemise(data);
+            const aggregatedInitial = {};
+            const aggregatedRemaining = {};
+            Object.keys(materialData).forEach(m => {
+                aggregatedInitial[m] = 0;
+                aggregatedRemaining[m] = 0;
+            });
+            simulatedResults.forEach(d => {
+                Object.entries(d.initialMass).forEach(([k, v]) => { if (aggregatedInitial[k] !== undefined) aggregatedInitial[k] += v; });
+                Object.entries(d.remainingMass).forEach(([k, v]) => { if (aggregatedRemaining[k] !== undefined) aggregatedRemaining[k] += v; });
+            });
+            const apiData = await fetchRecyclingData(aggregatedRemaining);
+            renderResults(simulatedResults, aggregatedInitial, aggregatedRemaining, apiData);
+            loadingSpinner.classList.add('hidden');
+            if (spinnerCircle) spinnerCircle.classList.add('paused');
+            resultsContainer.classList.remove('hidden');
+        }
+        function renderResults(simulatedResults, aggregatedInitial, aggregatedRemaining, apiData) {
+            resultsTableBody.innerHTML = '';
+            summaryTableBody.innerHTML = '';
+            simulatedResults.forEach(d => {
+                const row = `
+                    <tr>
+                        <td>${d.debris_id}</td>
+                        <td>${d.totalInitialMass.toFixed(2)}</td>
+                        <td>${d.totalFinalMass.toFixed(2)}</td>
+                        <td>${d.survivalRate.toFixed(2)}%</td>
+                        <td>${d.remainingMass.copper.toFixed(2)}</td>
+                        <td>${d.remainingMass.carbon_fiber.toFixed(2)}</td>
+                        <td>${d.remainingMass.gold.toFixed(2)}</td>
+                        <td>${d.remainingMass.aluminium.toFixed(2)}</td>
+                        <td>${d.remainingMass.silicon.toFixed(2)}</td>
+                    </tr>`;
+                resultsTableBody.insertAdjacentHTML('beforeend', row);
+            });
+            apiData.forEach(d => {
+                const key = d.material.toLowerCase().replace(/ /g, '_');
+                const initialMass = aggregatedInitial[key] || 0;
+                const survivalRate = initialMass > 0 ? (d.recoveredMass / initialMass) * 100 : 0;
+                const row = `
+                    <tr>
+                        <td>${d.material}</td>
+                        <td>${initialMass.toFixed(2)}</td>
+                        <td>${d.recoveredMass.toFixed(2)}</td>
+                        <td>${survivalRate.toFixed(2)}%</td>
+                        <td>${d.economicValue.toFixed(2)}</td>
+                        <td>${d.endProducts}</td>
+                      
+                    </tr>`;
+                summaryTableBody.insertAdjacentHTML('beforeend', row);
+            });
+            renderSurvivalChart(aggregatedInitial, aggregatedRemaining);
+            renderRecyclingMetricsChart(apiData);
+        }
+        function renderSurvivalChart(aggregatedInitial, aggregatedRemaining) {
+            // You do not have survivalChart canvas, so skip
+        }
+        function renderRecyclingMetricsChart(data) {
+            const ctx = document.getElementById('recyclingChart').getContext('2d');
+            if (window.recyclingChartInstance) window.recyclingChartInstance.destroy();
+            const labels = data.map(d => d.material);
+            const recoveredMass = data.map(d => d.recoveredMass);
+            const economicValue = data.map(d => d.economicValue);
+            window.recyclingChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            label: 'Recovered Mass (kg)',
+                            data: recoveredMass,
+                            borderColor: '#1f77b4',
+                            backgroundColor: 'transparent',
+                            yAxisID: 'y1',
+                            fill: false,
+                            tension: 0.1,
+                            pointStyle: 'circle',
+                            pointRadius: 5,
+                            pointHoverRadius: 7,
+                        },
+                        {
+                            label: 'Economic Value ($)',
+                            data: economicValue,
+                            borderColor: '#ff7f0e',
+                            backgroundColor: 'transparent',
+                            yAxisID: 'y2',
+                            fill: false,
+                            tension: 0.1,
+                            pointStyle: 'circle',
+                            pointRadius: 5,
+                            pointHoverRadius: 7,
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    interaction: { mode: 'nearest', axis: 'x', intersect: false },
+                    scales: {
+                        y1: {
+                            type: 'linear',
+                            position: 'left',
+                            title: { display: true, text: 'Recovered Mass (kg)', color: '#1f77b4' },
+                            ticks: { color: '#1f77b4' },
+                            grid: { color: '#30363d' }
+                        },
+                        y2: {
+                            type: 'logarithmic',
+                            position: 'right',
+                            title: { display: true, text: 'Economic Value ($)', color: '#ff7f0e' },
+                            ticks: {
+                                color: '#ff7f0e',
+                                callback: v => v.toLocaleString(),
+                            },
+                            grid: { drawOnChartArea: false }
+                        },
+                        x: {
+                            ticks: { color: '#58a6ff' },
+                            grid: { display: false }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: { color: '#58a6ff', font: { weight: 'bold' } }
+                        },
+                        tooltip: {
+                            backgroundColor: '#147efb',
+                            titleFont: { weight: 'bold' },
+                            bodyFont: { weight: 'normal' },
+                            callbacks: {
+                                label: ctx => ctx.dataset.yAxisID === 'y2'
+                                    ? `${ctx.dataset.label}: $${ctx.parsed.y.toLocaleString()}`
+                                    : `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)} kg`
+                            }
+                        }
+                    },
+                    elements: { line: { borderWidth: 2 } }
+                }
+            });
+        }
+        // Tab navigation with keyboard accessibility
+        const tabs = document.querySelectorAll('.tab-button');
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                setActiveTab(tab);
+            });
+            tab.addEventListener('keydown', e => {
+                if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+                    e.preventDefault();
+                    const idx = [...tabs].indexOf(tab);
+                    const nextIdx = e.key === 'ArrowRight' ? (idx + 1) % tabs.length : (idx - 1 + tabs.length) % tabs.length;
+                    tabs[nextIdx].focus();
+                    setActiveTab(tabs[nextIdx]);
+                }
+            });
+        });
+        function setActiveTab(selectedTab) {
+            tabs.forEach(tab => {
+                tab.classList.remove('active');
+                tab.setAttribute('aria-selected', 'false');
+                tab.setAttribute('tabindex', '-1');
+            });
+            selectedTab.classList.add('active');
+            selectedTab.setAttribute('aria-selected', 'true');
+            selectedTab.setAttribute('tabindex', '0');
+            const tabName = selectedTab.getAttribute('data-tab');
+            document.querySelectorAll('.tab-content').forEach(c => {
+                c.classList.add('hidden');
+                if(c.id === tabName) c.classList.remove('hidden');
+            });
+        }
+        // File input change handler
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                try {
+                    const csv = ev.target.result;
+                    const data = parseCSV(csv);
+                    processData(data);
+                    fileInput.value = ''; // reset file input for future uploads
+                } catch (error) {
+                    showMessageBox("Error", "Failed to process CSV file. Please ensure it is correctly formatted.");
+                    console.error("CSV Processing Error:", error);
+                }
+            };
+            reader.readAsText(file);
+        });
+    </script>
+</body>
+</html>
